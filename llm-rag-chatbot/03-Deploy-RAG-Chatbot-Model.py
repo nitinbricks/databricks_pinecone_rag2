@@ -181,10 +181,6 @@ print(e)
 
 # COMMAND ----------
 
-dbutilt.secrets.put('dbdemos','pinecone_api_key','653feee2-66ed-4e22-9fd0-583d9087868f')
-
-# COMMAND ----------
-
 import mlflow
 from mlflow.pyfunc import PythonModel
 import pinecone      
@@ -192,6 +188,8 @@ import os
 
 #Service principal Databricks PAT token we'll use to access our AI Gateway
 os.environ['AI_GATEWAY_SP'] = dbutils.secrets.get("dbdemos", "ai_gateway_service_principal")
+os.environ['PINECONE_API_KEY'] = dbutils.secrets.get("dbdemos", "pinecone_api_key")
+
 
 route = gateway.get_route(mosaic_route_name).route_url
 route_embeddings = gateway.get_route(openai_embedding_name).route_url
@@ -210,7 +208,7 @@ class ChatbotRAG(mlflow.pyfunc.PythonModel):
 
     def find_relevent_from_pinecone(self, questions, num_results=1, relevant_threshold = .66):
       pinecone.init(      
-        api_key='653feee2-66ed-4e22-9fd0-583d9087868f',      
+        api_key=os.environ['PINECONE_API_KEY'],    
         environment='gcp-starter'      
       )
       embeddings = self.create_embeddings(questions)
@@ -287,7 +285,7 @@ with mlflow.start_run(run_name="nw_chatbot_rag") as run:
     signature = infer_signature(["some", "data"], results)
     #Temp fix, do not use mlflow 2.6
     mlflow.pyfunc.log_model("model", python_model=chatbot, 
-                            signature=signature, pip_requirements=["mlflow==2.4.0", "cloudpickle==2.0.0", "databricks-vectorsearch-preview","pinecone-client"]) #
+                            signature=signature, pip_requirements=["mlflow==2.4.0", "cloudpickle==2.0.0","pinecone-client"]) #
     #mlflow.set_tags({"route": proxy_model.route})
 print(run.info.run_id)
 
@@ -327,7 +325,7 @@ serving_client.create_enpoint_if_not_exists("nw_dbdemos_chatbot_rag",
                                             workload_size="Small",
                                             scale_to_zero_enabled=True, 
                                             wait_start = True, 
-                                            environment_vars={"AI_GATEWAY_SP": "{{secrets/dbdemos/ai_gateway_service_principal}}"})
+                                            environment_vars={"AI_GATEWAY_SP": "{{secrets/dbdemos/ai_gateway_service_principal}}","PINECONE_API_KEY": "{{secrets/dbdemos/pinecone_api_key}}"})
 
 # COMMAND ----------
 
