@@ -124,7 +124,7 @@ serving_client.create_enpoint_if_not_exists("dbdemos_embedding_endpoint",
                                             environment_vars={"OPENAI_API_KEY": "{{secrets/dbdemos/openai}}"})
 
 #Make sure all users can access our endpoint for this demo
-set_model_endpoint_permission("dbdemos_embedding_endpoint", "CAN_MANAGE", "users")
+#set_model_endpoint_permission("dbdemos_embedding_endpoint", "CAN_MANAGE", "users")
 
 # COMMAND ----------
 
@@ -146,10 +146,6 @@ starting_time = timeit.default_timer()
 inferences = requests.post(endpoint_url, json=dataset, headers=serving_client.headers).json()
 #print(f"Embedding inference, end 2 end :{round((timeit.default_timer() - starting_time)*1000)}ms {inferences}")
 print(inferences['predictions'])
-
-# COMMAND ----------
-
-
 
 # COMMAND ----------
 
@@ -180,7 +176,7 @@ print(inferences['predictions'])
 import pinecone      
 
 pinecone.init(      
-	api_key='653feee2-66ed-4e22-9fd0-583d9087868f',      
+	api_key=dbutils.secrets.get("dbdemos", "pinecone_api_key"),      
 	environment='gcp-starter'      
 )      
 dbdemos_index = pinecone.Index('dbdemos-index')
@@ -195,31 +191,44 @@ docs_df = spark.table(f"{database_name}.{table_name}")
 
 # COMMAND ----------
 
+endpoint_url = f"{serving_client.base_url}/realtime-inference/dbdemos_embedding_endpoint/invocations"
+headers=serving_client.headers
+
 # Create embeddings client
 def create_embeddings(content):
   dataset =  {"dataframe_split": {'data': [content]}}
+  #print(f"Sending requests to {endpoint_url}")
+  inferences = requests.post(endpoint_url, json=dataset, headers=headers).json()
+  return(inferences['predictions'][0])
 
-  endpoint_url = f"{serving_client.base_url}/realtime-inference/dbdemos_embedding_endpoint/invocations"
-  print(f"Sending requests to {endpoint_url}")
-  inferences = requests.post(endpoint_url, json=dataset, headers=serving_client.headers).json()
-  return(inferences['predictions'])
 
-# Iterate over the DataFrame
+create_embeddings("Create it ")
+#Iterate over the DataFrame
 for row in docs_df.rdd.collect():
 
     # Get the text to encode
     content = row.content
     id = row.id
     metadata = { "url": row.url, "content": row.content, "title": row.title }
-    #print(metadata)
     
     # Encode the text as a Pinecone vector embedding
     embedding = create_embeddings(row.content)
     #print(embedding)
     
     # Insert the vector embedding and metadata into the Pinecone index
-    dbdemos_index.upsert(vectors=[{"id":str(id), "values":embedding[0], "metadata":metadata}])
+    dbdemos_index.upsert(vectors=[{"id":str(id), "values":embedding, "metadata":metadata}])
     
+
+# COMMAND ----------
+
+# pinecone_df.write \
+#     .option("pinecone.apiKey", dbutils.secrets.get("dbdemos", "pinecone_api_key")) \
+#     .option("pinecone.environment", "gcp-starter") \
+#     .option("pinecone.projectName", "dbdemos") \
+#     .option("pinecone.indexName", "dbdemos-index") \
+#     .format("io.pinecone.spark.pinecone.Pinecone") \
+#     .mode("append") \
+#     .save()
 
 # COMMAND ----------
 
@@ -228,7 +237,7 @@ question = "How can I track billing usage on my workspaces?"
 embedding = create_embeddings(question)
 
 results = dbdemos_index.query(
-  vector=embedding[0],
+  vector=embedding,
   top_k=1,
   include_metadata=True
 )

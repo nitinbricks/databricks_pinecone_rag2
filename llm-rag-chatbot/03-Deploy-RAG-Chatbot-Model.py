@@ -356,7 +356,7 @@ display_answer(question, answer['predictions'])
 # MAGIC We've seen how the Lakehouse AI is uniquely positioned to help you solve your Gen AI challenge:
 # MAGIC
 # MAGIC - Simplify Data Ingestion and preparation with Databricks Engineering Capabilities
-# MAGIC - Accelerate Vector Search  deployment with fully managed indexes
+# MAGIC - Stores Embeddings in scalable Pinecone Vector Index
 # MAGIC - Simplify, secure and control your LLM access with AI gateway
 # MAGIC - Access MosaicML's LLama 2 endpoint
 # MAGIC - Deploy realtime model endpoint to perform RAG 
